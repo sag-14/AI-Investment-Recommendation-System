@@ -43,13 +43,12 @@ page = st.sidebar.selectbox(
 
 st.sidebar.header("📈 Stock Selection")
 
-stock_symbol = st.sidebar.text_input(
-    "Enter Stock Symbol",
-    value="RELIANCE.NS"
+stock_symbol = st.sidebar.selectbox(
+    "Select Stock",
+    ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ITC.NS"]
 )
 
-if stock_symbol:
-    st.sidebar.success(f"Selected: {stock_symbol}")
+st.sidebar.success(f"Selected: {stock_symbol}")
 
 # ==========================================
 # Download Live Stock Data
@@ -62,6 +61,8 @@ try:
         period="1y",
         interval="1d"
     )
+
+    st.write("Current Stock:", stock_symbol)
 
     data = data.reset_index()
     if hasattr(data.columns, "levels"):
@@ -338,33 +339,59 @@ elif page == "AI Recommendation":
     # Recommendation Logic
     # ==============================
 
-    if close_price > ma20 and ma20 > ma50:
-        recommendation = "BUY"
-        confidence = 85
-        market_trend = "Bullish"
+    score = 0
 
-    elif close_price < ma20 and ma20 < ma50:
-        recommendation = "SELL"
-        confidence = 85
-        market_trend = "Bearish"
+    # Trend
+    if close_price > ma20:
+        score += 20
 
+    if close_price > ma50:
+        score += 20
+
+    # MA Crossover
+    if ma20 > ma50:
+        score += 20
+
+    # Momentum (use safe indexing)
+    if len(data) >= 6:
+        last_5_return = ((data["Close"].iloc[-1] / data["Close"].iloc[-6] - 1) * 100)
     else:
+        last_5_return = 0
+
+    if last_5_return > 3:
+        score += 20
+
+    # Volatility
+    volatility = data["Daily Return (%)"].std()
+
+    if volatility < 2:
+        score += 20
+
+    # Derive recommendation, confidence and market trend
+    confidence = float(score)
+
+    if score >= 70:
+        recommendation = "BUY"
+    elif score >= 40:
         recommendation = "HOLD"
-        confidence = 70
-        market_trend = "Sideways"
+    else:
+        recommendation = "SELL"
+
+    if ma20 > ma50:
+        market_trend = "Bullish"
+    elif ma20 < ma50:
+        market_trend = "Bearish"
+    else:
+        market_trend = "Neutral"
 
     # ==============================
     # Risk Analysis
     # ==============================
 
-    volatility = data["Daily Return (%)"].std()
-
     if volatility < 1:
         risk_level = "Low"
-
     elif volatility < 2:
         risk_level = "Medium"
-
     else:
         risk_level = "High"
 
@@ -410,6 +437,14 @@ elif page == "AI Recommendation":
 
     st.divider()
 
+    st.write("### Decision Factors")
+
+    st.write(f"Close Price: ₹{close_price:.2f}")
+    st.write(f"20 Day MA: ₹{ma20:.2f}")
+    st.write(f"50 Day MA: ₹{ma50:.2f}")
+    st.write(f"5 Day Momentum: {last_5_return:.2f}%")
+    st.write(f"Volatility: {volatility:.2f}%")
+    st.write(f"AI Score: {score}/100")
     # ==============================
     # AI Explanation
     # ==============================
@@ -718,21 +753,51 @@ elif page == "Reports":
     cumulative_return = float(latest["Cumulative Return (%)"])
 
     # Recommendation Logic
+# Calculate AI Score
+score = 0
 
-    ma20 = float(latest["MA20"])
-    ma50 = float(latest["MA50"])
+ma20 = float(latest["MA20"])
+ma50 = float(latest["MA50"])
 
-    if close_price > ma20 and ma20 > ma50:
+# Trend
+if close_price > ma20:
+    score += 20
+
+if close_price > ma50:
+    score += 20
+
+# Moving Average Trend
+if ma20 > ma50:
+    score += 20
+
+# Momentum
+last_5_return = (
+    (data["Close"].iloc[-1] /
+     data["Close"].iloc[-6] - 1)
+    * 100
+)
+
+if last_5_return > 3:
+    score += 20
+
+# Volatility
+volatility = data["Daily Return (%)"].std()
+
+if volatility < 2:
+    score += 20
+    
+    if score >= 80:
+        recommendation = "STRONG BUY"
+    elif score >= 60:
         recommendation = "BUY"
-        confidence = 85
-
-    elif close_price < ma20 and ma20 < ma50:
-        recommendation = "SELL"
-        confidence = 85
-
-    else:
+    elif score >= 40:
         recommendation = "HOLD"
-        confidence = 70
+    elif score >= 20:
+        recommendation = "SELL"
+    else:
+        recommendation = "STRONG SELL"
+
+    confidence = score
 
     # Risk
 
@@ -740,10 +805,8 @@ elif page == "Reports":
 
     if volatility < 1:
         risk_level = "Low"
-
     elif volatility < 2:
         risk_level = "Medium"
-
     else:
         risk_level = "High"
 
