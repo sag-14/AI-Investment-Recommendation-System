@@ -13,10 +13,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-stock_symbol = st.sidebar.selectbox(
-    "Select Stock",
-    ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ITC.NS"]
-)
+
 # ---------------- Sidebar ----------------
 
 st.sidebar.title("📈 AI Investment Recommendation System")
@@ -785,7 +782,7 @@ volatility = data["Daily Return (%)"].std()
 
 if volatility < 2:
     score += 20
-    
+
     if score >= 80:
         recommendation = "STRONG BUY"
     elif score >= 60:
