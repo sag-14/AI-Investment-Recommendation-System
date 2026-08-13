@@ -1266,3 +1266,4 @@ st.markdown("---")
 
 st.caption(
     "AI Investment Recommendation System | Streamlit + Python + AI Analytics"
+)
