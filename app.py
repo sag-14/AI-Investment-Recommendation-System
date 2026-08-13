@@ -749,40 +749,44 @@ elif page == "Reports":
     daily_return = float(latest["Daily Return (%)"])
     cumulative_return = float(latest["Cumulative Return (%)"])
 
-    # Recommendation Logic
-# Calculate AI Score
-score = 0
+    # ==========================
+    # AI Recommendation Logic
+    # ==========================
+    score = 0
 
-ma20 = float(latest["MA20"])
-ma50 = float(latest["MA50"])
+    ma20 = float(latest["MA20"])
+    ma50 = float(latest["MA50"])
 
-# Trend
-if close_price > ma20:
-    score += 20
+    # Trend
+    if close_price > ma20:
+        score += 20
 
-if close_price > ma50:
-    score += 20
+    if close_price > ma50:
+        score += 20
 
-# Moving Average Trend
-if ma20 > ma50:
-    score += 20
+    # Moving Average Trend
+    if ma20 > ma50:
+        score += 20
 
-# Momentum
-last_5_return = (
-    (data["Close"].iloc[-1] /
-     data["Close"].iloc[-6] - 1)
-    * 100
-)
+    # Momentum - safe for datasets with fewer than 6 rows
+    if len(data) >= 6:
+        last_5_return = (
+            (float(data["Close"].iloc[-1]) /
+             float(data["Close"].iloc[-6]) - 1) * 100
+        )
+    else:
+        last_5_return = 0.0
 
-if last_5_return > 3:
-    score += 20
+    if last_5_return > 3:
+        score += 20
 
-# Volatility
-volatility = data["Daily Return (%)"].std()
+    # Volatility
+    volatility = float(data["Daily Return (%)"].dropna().std())
 
-if volatility < 2:
-    score += 20
+    if volatility < 2:
+        score += 20
 
+    # Recommendation
     if score >= 80:
         recommendation = "STRONG BUY"
     elif score >= 60:
@@ -794,12 +798,9 @@ if volatility < 2:
     else:
         recommendation = "STRONG SELL"
 
-    confidence = score
+    confidence = float(score)
 
     # Risk
-
-    volatility = data["Daily Return (%)"].std()
-
     if volatility < 1:
         risk_level = "Low"
     elif volatility < 2:
@@ -810,11 +811,9 @@ if volatility < 2:
     # ==========================
     # Report Preview
     # ==========================
-
     st.subheader("📋 Report Preview")
 
     st.write("### Stock Summary")
-
     st.write(f"Current Price : ₹ {close_price:.2f}")
     st.write(f"Daily Return : {daily_return:.2f}%")
     st.write(f"Cumulative Return : {cumulative_return:.2f}%")
@@ -822,15 +821,12 @@ if volatility < 2:
     st.divider()
 
     st.write("### AI Recommendation")
-
     st.success(recommendation)
-
     st.write(f"Confidence : {confidence:.2f}%")
 
     st.divider()
 
     st.write("### Risk Summary")
-
     st.write(risk_level)
 
     st.divider()
@@ -838,75 +834,50 @@ if volatility < 2:
     # ==========================
     # Generate PDF
     # ==========================
-
     if st.button("Generate PDF Report"):
 
         styles = getSampleStyleSheet()
-
-        pdf = SimpleDocTemplate(
-            "Investment_Report.pdf"
-        )
-
+        pdf = SimpleDocTemplate("Investment_Report.pdf")
         story = []
 
-        story.append(
-            Paragraph(
-                "AI Investment Recommendation Report",
-                styles["Heading1"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Generated : {datetime.now()}",
-                styles["Normal"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Current Price : ₹ {close_price:.2f}",
-                styles["Normal"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Daily Return : {daily_return:.2f}%",
-                styles["Normal"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Recommendation : {recommendation}",
-                styles["Normal"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Confidence : {confidence:.2f}%",
-                styles["Normal"]
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"Risk Level : {risk_level}",
-                styles["Normal"]
-            )
-        )
+        story.append(Paragraph(
+            "AI Investment Recommendation Report",
+            styles["Heading1"]
+        ))
+        story.append(Paragraph(
+            f"Generated : {datetime.now()}",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Stock : {stock_symbol}",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Current Price : ₹ {close_price:.2f}",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Daily Return : {daily_return:.2f}%",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Recommendation : {recommendation}",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Confidence : {confidence:.2f}%",
+            styles["Normal"]
+        ))
+        story.append(Paragraph(
+            f"Risk Level : {risk_level}",
+            styles["Normal"]
+        ))
 
         pdf.build(story)
 
         st.success("PDF Generated Successfully!")
 
-        with open(
-            "Investment_Report.pdf",
-            "rb"
-        ) as file:
-
+        with open("Investment_Report.pdf", "rb") as file:
             st.download_button(
                 label="⬇ Download PDF",
                 data=file,
@@ -1013,115 +984,237 @@ elif page == "Stock Comparison":
 
     st.title("📊 Stock Comparison")
 
-    stock1 = st.selectbox(
-        "Stock 1",
-        [
-            "RELIANCE.NS",
-            "TCS.NS",
-            "INFY.NS",
-            "HDFCBANK.NS"
-        ]
-    )
+    comparison_stocks = [
+        "RELIANCE.NS",
+        "TCS.NS",
+        "INFY.NS",
+        "HDFCBANK.NS",
+        "ITC.NS"
+    ]
 
-    stock2 = st.selectbox(
-        "Stock 2",
-        [
-            "RELIANCE.NS",
-            "TCS.NS",
-            "INFY.NS",
-            "HDFCBANK.NS"
-        ]
-    )
+    col1, col2 = st.columns(2)
 
-    data1 = yf.download(
-        stock1,
-        period="1y"
-    )
+    with col1:
+        stock1 = st.selectbox("Stock 1", comparison_stocks, index=0)
 
-    data2 = yf.download(
-        stock2,
-        period="1y"
-    )
+    with col2:
+        stock2 = st.selectbox("Stock 2", comparison_stocks, index=1)
 
-    fig = go.Figure()
+    if stock1 == stock2:
+        st.warning("Please select two different stocks for comparison.")
+        st.stop()
 
-    fig.add_trace(
-        go.Scatter(
-            x=data1.index,
-            y=data1["Close"],
-            name=stock1
+    try:
+        data1 = yf.download(
+            stock1,
+            period="1y",
+            interval="1d",
+            progress=False,
+            auto_adjust=False
         )
-    )
 
-    fig.add_trace(
-        go.Scatter(
-            x=data2.index,
-            y=data2["Close"],
-            name=stock2
+        data2 = yf.download(
+            stock2,
+            period="1y",
+            interval="1d",
+            progress=False,
+            auto_adjust=False
         )
-    )
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
+        # yfinance may return MultiIndex columns. Convert Close to a simple Series.
+        def get_close_series(stock_data):
+            if stock_data.empty or "Close" not in stock_data.columns:
+                return pd.Series(dtype=float)
+
+            close = stock_data["Close"]
+            if isinstance(close, pd.DataFrame):
+                close = close.iloc[:, 0]
+
+            return pd.to_numeric(close, errors="coerce").dropna()
+
+        close1 = get_close_series(data1)
+        close2 = get_close_series(data2)
+
+        if close1.empty or close2.empty:
+            st.error("Unable to retrieve sufficient price data for one or both stocks.")
+        else:
+            fig = go.Figure()
+
+            fig.add_trace(go.Scatter(
+                x=close1.index,
+                y=close1.values,
+                name=stock1,
+                mode="lines"
+            ))
+
+            fig.add_trace(go.Scatter(
+                x=close2.index,
+                y=close2.values,
+                name=stock2,
+                mode="lines"
+            ))
+
+            fig.update_layout(
+                title="1-Year Closing Price Comparison",
+                xaxis_title="Date",
+                yaxis_title="Price (₹)",
+                template="plotly_white",
+                height=500
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Normalized comparison makes performance easier to compare.
+            normalized1 = (close1 / close1.iloc[0]) * 100
+            normalized2 = (close2 / close2.iloc[0]) * 100
+
+            st.subheader("📈 Normalized Performance")
+
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(
+                x=normalized1.index,
+                y=normalized1.values,
+                name=stock1,
+                mode="lines"
+            ))
+            fig2.add_trace(go.Scatter(
+                x=normalized2.index,
+                y=normalized2.values,
+                name=stock2,
+                mode="lines"
+            ))
+
+            fig2.update_layout(
+                title="Growth of ₹100 (Normalized)",
+                xaxis_title="Date",
+                yaxis_title="Normalized Value",
+                template="plotly_white",
+                height=450
+            )
+
+            st.plotly_chart(fig2, use_container_width=True)
+
+            return1 = ((close1.iloc[-1] / close1.iloc[0]) - 1) * 100
+            return2 = ((close2.iloc[-1] / close2.iloc[0]) - 1) * 100
+
+            c1, c2 = st.columns(2)
+            c1.metric(f"{stock1} 1-Year Return", f"{return1:.2f}%")
+            c2.metric(f"{stock2} 1-Year Return", f"{return2:.2f}%")
+
+    except Exception as e:
+        st.error(f"Unable to compare stocks: {e}")
 
 elif page == "Portfolio Optimization":
 
     st.title("🎯 Portfolio Optimization")
 
-    portfolio = pd.read_csv(
-        "data/portfolio_analysis.csv"
-    )
+    try:
+        portfolio = pd.read_csv("data/portfolio_analysis.csv")
 
-    total_value = portfolio[
-        "Current Value"
-    ].sum()
+        required_columns = {"Stock", "Current Value"}
+        missing_columns = required_columns - set(portfolio.columns)
 
-    portfolio["Weight (%)"] = (
-        portfolio["Current Value"]
-        / total_value
-        * 100
-    )
+        if missing_columns:
+            st.error(
+                "Portfolio file is missing required columns: "
+                + ", ".join(sorted(missing_columns))
+            )
+            st.stop()
 
-    st.subheader(
-        "Current Allocation"
-    )
+        # Ensure Current Value is numeric.
+        portfolio["Current Value"] = pd.to_numeric(
+            portfolio["Current Value"],
+            errors="coerce"
+        ).fillna(0)
 
-    st.dataframe(
-        portfolio,
-        use_container_width=True
-    )
+        total_value = float(portfolio["Current Value"].sum())
 
-    st.divider()
-
-    st.subheader(
-        "AI Suggestions"
-    )
-
-    for _, row in portfolio.iterrows():
-
-        if row["Weight (%)"] > 50:
-
+        if total_value <= 0:
             st.warning(
-                f"Reduce allocation in {row['Stock']}."
+                "Portfolio current value is zero or unavailable, so allocation "
+                "weights cannot be calculated."
             )
-
+            portfolio["Weight (%)"] = 0.0
         else:
-
-            st.success(
-                f"{row['Stock']} allocation looks healthy."
+            portfolio["Weight (%)"] = (
+                portfolio["Current Value"] / total_value * 100
             )
 
-    diversification_score = (
-        100
-        - portfolio["Weight (%)"].max()
-    )
+        st.subheader("Current Allocation")
 
-    st.metric(
-        "Diversification Score",
-        f"{diversification_score:.2f}"
-    )
+        st.dataframe(
+            portfolio,
+            use_container_width=True
+        )
+
+        st.divider()
+
+        # Allocation chart
+        if total_value > 0 and not portfolio.empty:
+            st.subheader("🥧 Current Portfolio Allocation")
+
+            allocation_fig = px.pie(
+                portfolio,
+                names="Stock",
+                values="Current Value",
+                hole=0.45
+            )
+
+            allocation_fig.update_layout(
+                template="plotly_white",
+                height=450
+            )
+
+            st.plotly_chart(
+                allocation_fig,
+                use_container_width=True
+            )
+
+        st.divider()
+        st.subheader("🤖 AI Suggestions")
+
+        if portfolio.empty:
+            st.info("No holdings found in the portfolio file.")
+        else:
+            for _, row in portfolio.iterrows():
+                weight = float(row["Weight (%)"])
+                stock_name = str(row["Stock"])
+
+                if weight > 50:
+                    st.warning(
+                        f"{stock_name}: allocation is {weight:.2f}%. "
+                        "Consider reducing concentration."
+                    )
+                elif weight > 30:
+                    st.warning(
+                        f"{stock_name}: allocation is {weight:.2f}%. "
+                        "Monitor concentration risk."
+                    )
+                else:
+                    st.success(
+                        f"{stock_name}: allocation of {weight:.2f}% looks diversified."
+                    )
+
+        if total_value > 0 and not portfolio.empty:
+            max_weight = float(portfolio["Weight (%)"].max())
+            diversification_score = max(0.0, 100.0 - max_weight)
+        else:
+            diversification_score = 0.0
+
+        st.metric(
+            "Diversification Score",
+            f"{diversification_score:.2f}/100"
+        )
+
+        st.caption(
+            "Higher scores indicate lower concentration in the largest holding. "
+            "This is a simple concentration metric, not personalized financial advice."
+        )
+
+    except FileNotFoundError:
+        st.error("Portfolio file not found: data/portfolio_analysis.csv")
+    except Exception as e:
+        st.error(f"Unable to optimize portfolio: {e}")
 
 elif page == "About Project":
 
@@ -1173,4 +1266,3 @@ st.markdown("---")
 
 st.caption(
     "AI Investment Recommendation System | Streamlit + Python + AI Analytics"
-)
